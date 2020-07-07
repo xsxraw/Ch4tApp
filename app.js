@@ -8,7 +8,6 @@ const port=process.env.PORT || 3000
 const connectionString = 'mongodb+srv://omomuro:sS92911026@cluster0.kzfxn.mongodb.net/<dbname>?retryWrites=true&w=majority'
 app.use(bodyParser.urlencoded({extended: true}))
 
-
 function randomValueHex(len) {
   return crypto
     .randomBytes(Math.ceil(len / 2))
@@ -16,7 +15,7 @@ function randomValueHex(len) {
     .slice(0, len)
 }
 
-var username = randomValueHex(8)
+var ipDict = {}
 var options = {
   server: { socketOptions: { keepAlive: 1, connectTimeoutMS: 30000 } },
   replset: { socketOptions: { keepAlive: 1, connectTimeoutMS: 30000 } }
@@ -32,9 +31,15 @@ MongoClient.connect(connectionString, options)
     app.set('view engine', 'ejs')
 
     app.get('/', function(req, res){
+      var ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+      if (!ipDict[ip]){
+        ipDict[ip] = randomValueHex(8)
+      }
+      console.log(ipDict);
+
       db.collection('chats').find().toArray()
       .then(result => {
-        res.render('index.ejs', {quotes: result, username: username})
+        res.render('index.ejs', {quotes: result, username:ipDict[ip]})
       })
     })
 
@@ -43,7 +48,8 @@ MongoClient.connect(connectionString, options)
     })
 
     app.post('/quotes', function(req, res){
-      req.body['name'] = username
+      var ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+      req.body['name'] = ipDict[ip]
       chatCollection.insertOne(req.body)
         .then(result => {
           //console.log(result)
